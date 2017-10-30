@@ -206,7 +206,13 @@ def memcard_read(fileObject):
         ser.write(hex_data[1])
 
         temp = ser.read(block_size)
-        ser.read(1)
+        mcchk=ser.read(1)
+        chk = ord(hex_data[1])^ord(hex_data[0])
+        for chki in xrange(0,127):
+            chk = chk^int(ord(temp[chki]))
+        chk =chr(chk)
+        if mcchk!= chk:
+            print ByteToHex(mcchk)+ByteToHex(chk)
         b = ser.read(1)
         tend = datetime.now()
         tPrint=tend-tstart
@@ -389,7 +395,7 @@ for opt, arg in opts:
         mode = "WRITE"
     elif opt in ("-c" , "--capacity"):
         end = arg
-    elif opt in ("-t" , "--testframe"):
+    elif opt in ("-t" , "--testframe"): # is a dev option, not guarinteed to stay yet.
         frameAddress=arg
         mode="READFRAME"
     elif opt in("-b", "--bitrate"):
