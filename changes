@@ -1,0 +1,9 @@
+Added debug option(set the global debugmode to 1, prints extra info)
+code cleanup (removing unused variables, and completely unnessary code)
+refactoring write code into a function (untested, and not used yet)
+refactoring read code into a function (untested, and not used yet)
+renames some variables as to not be "protected globals" as the ide called it.
+moved the 0 frame to a global, potentially for a new check to compare with correct header (also untested)
+Improved spelling and description of some errors
+added additional option (force) to continue on connection error
+added additional option testframe (t) reads frame and prints raw hex data.
