@@ -111,9 +111,12 @@ def PrintHelpText():
     print "<capacyty> sets memory card capacity [blocks] *1 block = 128 B* (default 1024 blocks)"
     print "<bitrate> sets bitrate on serial port (default 38400 bps)"
     print "format command formats memorycard with all \\x00\n\n\n"
-    print "debug adds in extra debug information"
+
 
 def test():
+    """
+    High Level test function, resets arduino by cycling the serial port, and proforms other tests
+    """
     ser.close()
     ser.open()        # sometimes when serial port is opened, the arduino resets,so open, then wait for it to reset, then continue on with the check
     time.sleep(2)
@@ -121,7 +124,21 @@ def test():
     
     check_connection()
     check_memoryCard()
-    
+
+def check_connection():
+    """
+    Checks the MemCARDuino can communicate by getting the version and Identifier, see Memcarduino.ino for more information
+    """
+    sys.stdout.write("Running MemCARDuino check: ") 
+    #start MemCARDuino verify 
+
+    ser.write(GID)
+    temp=ser.read(6)
+    if temp !="MCDINO":
+        print "FAILED!\nError: MemCARDuino Communication Error, got \""+temp + "\" as identifier (should be \"MCDINO\")\n\n Check that MemCARDuino is properly connected to computer and serial port is right.\n\n"
+        sys.exit()
+    print "PASSED."
+
 def check_memoryCard():
     print "Running MemoryCard Read check."
     #start MemCARDuino verify 
@@ -144,16 +161,6 @@ def check_memoryCard():
         print "Memory Card Test Read Failed with BAD SECTOR, check MemoryCard wiring and power."
         sys.exit()
 
-def check_connection():
-    sys.stdout.write("Running MemCARDuino check: ") 
-    #start MemCARDuino verify 
-
-    ser.write(GID)
-    temp=ser.read(6)
-    if temp !="MCDINO":
-        print "FAILED!\nError: MemCARDuino Communication Error, got \""+temp + "\" as identifier (should be \"MCDINO\")\n\n Check that MemCARDuino is properly connected to computer and serial port is right.\n\n"
-        sys.exit()
-    print "PASSED."
 
 def memcard_readframe(frameAddress):
     tstart = datetime.now()
@@ -175,18 +182,17 @@ def memcard_readframe(frameAddress):
     tPrint=tend-tstart
     failed=0
     if(StatusByte == "\x47"):
-        #print "OK at frame  Address:"+ByteToHex(ia)+" TimeTaken:"+str(tPrint)
-        a=0
+        #print "OK at frame"
+        failed=0
     elif(StatusByte == "\x4E"):
-        #print "BAD CHECKSUM at frame  Address:"+ByteToHex(ia)+" TimeTaken:"+str(tPrint)
-        a=0
+        #print "BAD CHECKSUM at frame"
+        failed=0
     elif(StatusByte == "\xFF"):
-        #print "BAD SECTOR at frame  Address:"+ByteToHex(ia)+" TimeTaken:"+str(tPrint)
+        #print "BAD SECTOR at frame "
         failed=2
     else:
-        #print "UNKNOWN ERROR at frame  Address:"+ByteToHex(ia)+" TimeTaken:"+str(tPrint)  # WTF?
+        #print "UNKNOWN ERROR at frame"  # WTF?
         failed=1
-    #tempFrame = ByteToHex(tempFrame)
 
     return failed,tempFrame,chkByte,StatusByte,tPrint
 
@@ -387,7 +393,7 @@ for opt, arg in opts:
     if opt in ("-h" , "--PrintHelpText"):
         PrintHelpText()
         sys.exit()
-    elif opt in("-d", "--debug"):
+    elif opt in("-d", "--debug"):# unlisted option
         debugmode=1
         print "Debug mode On, printing opts table:"
         for debuga,debugbb in opts:
@@ -411,7 +417,7 @@ for opt, arg in opts:
         print "Warning: bitrate should not be changed unless necessary"
         print arg
         rate = int(str(arg))
-    elif opt in("-z"):
+    elif opt in("-z"): # unlisted option
         force=1
     else:
         print "Error: Option:"+opt+" was not accepted."
