@@ -126,7 +126,7 @@ def check_memoryCard():
     print "Running MemoryCard Read check."
     #start MemCARDuino verify 
     mismatch=0
-    status,data,chkByte=memcard_readframe(0)
+    status,data,chkByte,statusByte,timetoread=memcard_readframe(0)
     if debugmode == 1 and status == 0:
         chkByte = ByteToHex(chkByte)
         for i in xrange(0,len(data)):
@@ -166,21 +166,29 @@ def memcard_readframe(frameAddress):
     chkByte = ser.read(1)
     StatusByte = ser.read(1)
     tend = datetime.now()
+    chkcalc = int(ord(ia[1])^ord(ia[0]))
+    for chki in xrange(0,128):
+        chkcalc = int(chkcalc)^int(ord(tempFrame[chki]))
+    chkcalc =chr(chkcalc)
+    if chkByte!= chkcalc and debugmode==1:
+        print "MemoryCard Commumication Warn: Checksum for Frame: "+ByteToHex(ia)+" Failed. "
     tPrint=tend-tstart
     failed=0
     if(StatusByte == "\x47"):
-        print "OK at frame  Address:"+ByteToHex(ia)+" TimeTaken:"+str(tPrint)
+        #print "OK at frame  Address:"+ByteToHex(ia)+" TimeTaken:"+str(tPrint)
+        a=0
     elif(StatusByte == "\x4E"):
-        print "BAD CHECKSUM at frame  Address:"+ByteToHex(ia)+" TimeTaken:"+str(tPrint)
+        #print "BAD CHECKSUM at frame  Address:"+ByteToHex(ia)+" TimeTaken:"+str(tPrint)
+        a=0
     elif(StatusByte == "\xFF"):
-        print "BAD SECTOR at frame  Address:"+ByteToHex(ia)+" TimeTaken:"+str(tPrint)
+        #print "BAD SECTOR at frame  Address:"+ByteToHex(ia)+" TimeTaken:"+str(tPrint)
         failed=2
     else:
-        print "UNKNOWN ERROR at frame  Address:"+ByteToHex(ia)+" TimeTaken:"+str(tPrint)  # WTF?
+        #print "UNKNOWN ERROR at frame  Address:"+ByteToHex(ia)+" TimeTaken:"+str(tPrint)  # WTF?
         failed=1
     #tempFrame = ByteToHex(tempFrame)
 
-    return failed,tempFrame,chkByte
+    return failed,tempFrame,chkByte,StatusByte,tPrint
 
 
 def memcard_read(fileObject):
@@ -189,7 +197,7 @@ def memcard_read(fileObject):
     print "reading data from memory card...\n"
     passed = 0
     for i in xrange(start, end):
-        tstart = datetime.now()
+#         tstart = datetime.now()
         if (i <= 255):
             ia = "\x00" + chr(i)
         else:
@@ -197,25 +205,26 @@ def memcard_read(fileObject):
             ia = ia[1] + ia[0]  # invert that crap on the cheap
         # convert to a 2byte hex string, then decode
         hex_data = ia
-        # conv to a array
-        #arry = array.array('B', hex_data)
-        map(ord, hex_data)
-        # end of black magic
-        ser.write(MCR)
-        ser.write(hex_data[0])
-        ser.write(hex_data[1])
-
-        temp = ser.read(block_size)
-        mcchk=ser.read(1)
-        chk = ord(hex_data[1])^ord(hex_data[0])
-        for chki in xrange(0,128):
-            chk = chk^int(ord(temp[chki]))
-        chk =chr(chk)
-        if mcchk!= chk:
-            print ByteToHex(mcchk)+ByteToHex(chk)
-        b = ser.read(1)
-        tend = datetime.now()
-        tPrint=tend-tstart
+#         # conv to a array
+#         #arry = array.array('B', hex_data)
+#         map(ord, hex_data)
+#         # end of black magic
+#         ser.write(MCR)
+#         ser.write(hex_data[0])
+#         ser.write(hex_data[1])
+# 
+#         temp = ser.read(block_size)
+#         mcchk=ser.read(1)
+#         chk = ord(hex_data[1])^ord(hex_data[0])
+#         for chki in xrange(0,128):
+#             chk = chk^int(ord(temp[chki]))
+#         chk =chr(chk)
+#         if mcchk!= chk:
+#             print ByteToHex(mcchk)+ByteToHex(chk)
+#         b = ser.read(1)
+#         tend = datetime.now()
+#         tPrint=tend-tstart
+        failed,temp,check,b,tPrint=memcard_readframe(i)
         if(b == "\x47"):
             f.write(temp)
             print "OK at frame "+str(i+1)+"/"+str(end)+"  Address:"+ByteToHex(hex_data)+" TimeTaken:"+str(tPrint)
@@ -362,7 +371,7 @@ rate = 38400
 fileObject = ""
 mode = ""
 try:
-    opts, args = getopt.getopt(sys.argv[1:] , "hfzdp:r:w:c:b:t:" , [ "PrintHelpText" , "format" , "port" , "read" , "write" , "capacity" , "bitrate","testframe"])
+    opts, args = getopt.getopt(sys.argv[1:] , "hfzdp:r:w:c:b:t:" , [ "help" , "format" , "port" , "read" , "write" , "capacity" , "bitrate","testframe"])
 except getopt.GetoptError as ErrorRased:
     print "Error: Option "+ErrorRased.opt+" Requires a Argument \n\n"
     PrintHelpText()
