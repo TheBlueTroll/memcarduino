@@ -120,44 +120,41 @@ def test():
     ser.isOpen()
     
     check_connection()
-def testFormat():
-    ser.close()
-    ser.open()        # sometimes when serial port is opened, the arduino resets,so open, then wait for it to reset, then continue on with the check
-    time.sleep(2)
-    ser.isOpen()
+    check_memoryCard()
     
-    #check_connection() #thows error when the first frame is erased, which format does
+def check_memoryCard():
+    print "Running MemoryCard Read check."
+    #start MemCARDuino verify 
+    mismatch=0
+    status,data,chkByte=memcard_readframe(0)
+    if debugmode == 1 and status == 0:
+        chkByte = ByteToHex(chkByte)
+        for i in xrange(0,len(data)):
+            if data[i] != MCHEAD[i]:
+                print "Header Mismatched, potential formatting error, or communication error"
+                mismatch=1
+        if mismatch==1:
+            print "Memory Card Header is not correct, is the card formatted?"
+        else:
+            print "Memory Card Header is correct."
+    if status == 1:
+        print "Memory Card Test Read failed, Exiting."
+        sys.exit()
+    elif status == 2:
+        print "Memory Card Test Read Failed with BAD SECTOR, check MemoryCard wiring and power."
+        sys.exit()
 
 def check_connection():
-    if debugmode == 1:
-        print "Running MemCARDuino check."
+    sys.stdout.write("Running MemCARDuino check: ") 
     #start MemCARDuino verify 
 
     ser.write(GID)
     temp=ser.read(6)
     if temp !="MCDINO":
-        print "Error: MemCARDuino Communication Error, got \""+temp + "\" as identifier (should be \"MCDINO\")\n\n Check that MemCARDuino is properly connected to computer and serial port is right.\n\n"
+        print "FAILED!\nError: MemCARDuino Communication Error, got \""+temp + "\" as identifier (should be \"MCDINO\")\n\n Check that MemCARDuino is properly connected to computer and serial port is right.\n\n"
         sys.exit()
-    #end MemCARDuino verify
-    if debugmode == 1:
-        print "Passed MemCARDuino check.\nRunning MemoryCard header check."
-    #start mcr verify
-    ser.write(MCR + "\x00" + "\x00")
-    temp=ser.read(128)
-    ser.read(1)
-    b = ser.read(1)
-    for i in xrange(0,len(temp)):
-        if temp[i] != MCHEAD[i]:
-            print "!!!!!Header Data Mismatched!!!!!!"
+    print "PASSED."
 
-    if b!="\x47":
-        print"!!!!!!!!!Error: MemoryCard Read Failure: Failed to read frame from MemoryCard.!!!!!!!!!\n\n		Check connections to MemoryCard.\n\n"
-        if force != 1:
-            sys.exit()
-        else:
-            print "Ignoring error, and continuing"
-    if debugmode == 1:
-        print "passed header check\n"
 def memcard_readframe(frameAddress):
     tstart = datetime.now()
     ia = pack('H', frameAddress)
@@ -170,19 +167,22 @@ def memcard_readframe(frameAddress):
     StatusByte = ser.read(1)
     tend = datetime.now()
     tPrint=tend-tstart
+    failed=0
     if(StatusByte == "\x47"):
         print "OK at frame  Address:"+ByteToHex(ia)+" TimeTaken:"+str(tPrint)
     elif(StatusByte == "\x4E"):
         print "BAD CHECKSUM at frame  Address:"+ByteToHex(ia)+" TimeTaken:"+str(tPrint)
     elif(StatusByte == "\xFF"):
         print "BAD SECTOR at frame  Address:"+ByteToHex(ia)+" TimeTaken:"+str(tPrint)
+        failed=2
     else:
         print "UNKNOWN ERROR at frame  Address:"+ByteToHex(ia)+" TimeTaken:"+str(tPrint)  # WTF?
+        failed=1
     #tempFrame = ByteToHex(tempFrame)
-    chkByte = ByteToHex(chkByte)
-    for i in xrange(0,len(tempFrame)):
-        if tempFrame[i] != MCHEAD[i]:
-            print "Header Mismatched"
+
+    return failed,tempFrame,chkByte
+
+
 def memcard_read(fileObject):
     f = fileObject
     temp = ""
@@ -208,7 +208,7 @@ def memcard_read(fileObject):
         temp = ser.read(block_size)
         mcchk=ser.read(1)
         chk = ord(hex_data[1])^ord(hex_data[0])
-        for chki in xrange(0,127):
+        for chki in xrange(0,128):
             chk = chk^int(ord(temp[chki]))
         chk =chr(chk)
         if mcchk!= chk:
@@ -230,7 +230,7 @@ def memcard_read(fileObject):
             print "UNKNOWN ERROR at frame "+str(i+1)+"/"+str(end)+"  Address:"+ByteToHex(hex_data)+" TimeTaken:"+str(tPrint)  # WTF?
             f.write("\x00"*128)
         
-    result(passed)
+    printResult(passed)
 
 def memcard_write(fileObject):
     f = fileObject
@@ -275,7 +275,7 @@ def memcard_write(fileObject):
         else:
             print "UNKNOWN ERROR at frame "+str(i+1)+"/"+str(end)+"  Address:"+ByteToHex(hex_data)+"  CHECKSUM:"+ByteToHex(chk)+" TimeTaken:"+str(tPrint)   # WTF?
             
-    result(passed)
+    printResult(passed)
     
 def memcard_format():
     print "formatting memory card...\n"
@@ -344,9 +344,9 @@ def memcard_format():
             else:
                 print "UNKNOWN ERROR at frame "+str(i+1)+"/"+str(end)+"  Address:"+ByteToHex(hex_data)+" TimeTaken:"+str(tPrint)   # WTF?
                 
-    result(passed)
+    printResult(passed)
         
-def result(passed):
+def printResult(passed):
     print "\n\n\n"
     if(passed == end):
         print "SUCCESS"
