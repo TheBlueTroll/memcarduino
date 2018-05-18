@@ -268,7 +268,7 @@ def memcard_write(fileObject):
         
         data_block = f.read(block_size)
         chk = ord(hex_data[1])^ord(hex_data[0])
-        for chki in xrange(0,127):
+        for chki in xrange(0,128):
             chk = chk^int(ord(data_block[chki]))
         chk =chr(chk)
         ser.write(MCW)
